@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LogOut, Plus, Pencil, Trash2, Download, Upload, FileText, Save, ArrowLeft, Wallet, TrendingDown, Settings as SettingsIcon, Search, Receipt, UserPlus, Users as UsersIcon, FileSpreadsheet } from 'lucide-react';
+import { LogOut, Plus, Pencil, Trash2, Download, Upload, FileText, Save, ArrowLeft, Wallet, TrendingDown, Settings as SettingsIcon, Search, Receipt, UserPlus, Users as UsersIcon, FileSpreadsheet, Crown } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -33,6 +33,22 @@ const ROLES = [
   { value: 'bendahara', label: 'Bendahara' },
   { value: 'pengurus', label: 'Pengurus' },
 ];
+
+const DIVISIONS = [
+  { value: 'pelindung', label: 'Pelindung' },
+  { value: 'penasihat', label: 'Penasihat' },
+  { value: 'ketua', label: 'Ketua Pelaksana' },
+  { value: 'wakil-ketua', label: 'Wakil Ketua' },
+  { value: 'sekretaris', label: 'Sekretaris' },
+  { value: 'bendahara', label: 'Bendahara' },
+  { value: 'acara', label: 'Seksi Acara' },
+  { value: 'perlengkapan', label: 'Seksi Perlengkapan' },
+  { value: 'konsumsi', label: 'Seksi Konsumsi' },
+  { value: 'dokumentasi', label: 'Seksi Dokumentasi & Publikasi' },
+  { value: 'humas', label: 'Seksi Humas & Dana Usaha' },
+  { value: 'keamanan', label: 'Seksi Keamanan & Kebersihan' },
+];
+const COMMITTEE_ROLES = [{ value: 'koordinator', label: 'Koordinator' }, { value: 'anggota', label: 'Anggota' }];
 
 function TxForm({ initial, onSubmit, onCancel }) {
   const [form, setForm] = useState(initial || { date: todayISO(), name: '', category: 'warga', amount: '', note: '', type: 'in' });
@@ -72,6 +88,37 @@ function TxForm({ initial, onSubmit, onCancel }) {
   );
 }
 
+function CommitteeForm({ initial, onSubmit, onCancel }) {
+  const [form, setForm] = useState(initial || { fullName: '', division: 'acara', role: 'anggota', order: 100 });
+  const upd = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit(form); }} className="space-y-3">
+      <div className="space-y-1.5"><Label>Nama Lengkap</Label><Input value={form.fullName} onChange={(e) => upd('fullName', e.target.value)} placeholder="Nama anggota" required /></div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Divisi / Jabatan</Label>
+          <Select value={form.division} onValueChange={(v) => upd('division', v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{DIVISIONS.map((d) => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Peran</Label>
+          <Select value={form.role} onValueChange={(v) => upd('role', v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{COMMITTEE_ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="space-y-1.5"><Label>Urutan (order)</Label><Input type="number" value={form.order} onChange={(e) => upd('order', Number(e.target.value))} placeholder="100" /><p className="text-xs text-muted-foreground">Angka lebih kecil tampil lebih dulu. Saran: koordinator 10/20/30/40/50/60, anggota +1/+2.</p></div>
+      <DialogFooter className="gap-2">
+        <Button type="button" variant="outline" onClick={onCancel}>Batal</Button>
+        <Button type="submit" className="bg-red-600 hover:bg-red-700"><Save className="w-4 h-4 mr-1.5" /> Simpan</Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
 function UserForm({ initial, onSubmit, onCancel, isEdit }) {
   const [form, setForm] = useState(initial || { username: '', password: '', fullName: '', role: 'pengurus' });
   const upd = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -101,9 +148,12 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState([]);
   const [users, setUsers] = useState([]);
+  const [committee, setCommittee] = useState([]);
   const [settings, setSettings] = useState(null);
   const [openAdd, setOpenAdd] = useState(false);
   const [editTx, setEditTx] = useState(null);
+  const [openAddCommittee, setOpenAddCommittee] = useState(false);
+  const [editCommittee, setEditCommittee] = useState(null);
   const [targetInput, setTargetInput] = useState('');
   const [orgInput, setOrgInput] = useState('');
   const [eventInput, setEventInput] = useState('');
@@ -132,6 +182,8 @@ export default function AdminPage() {
     setTargetInput(String(s.targetAmount || ''));
     setOrgInput(s.organizationName || '');
     setEventInput(s.eventName || '');
+    const cm = await fetch('/api/admin/committee').then(r => r.json());
+    setCommittee(cm.members || []);
     if (me.user?.role === 'admin') {
       const u = await fetch('/api/admin/users').then(r => r.json());
       setUsers(u.users || []);
@@ -255,6 +307,23 @@ export default function AdminPage() {
   };
 
   // user management
+  const addCommittee = async (form) => {
+    const res = await fetch('/api/admin/committee', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    if (res.ok) { toast.success('Anggota panitia ditambahkan'); setOpenAddCommittee(false); fetchAll(); }
+    else { const d = await res.json(); toast.error(d.error || 'Gagal'); }
+  };
+  const updateCommittee = async (form) => {
+    const res = await fetch(`/api/admin/committee/${editCommittee.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    if (res.ok) { toast.success('Data anggota diupdate'); setEditCommittee(null); fetchAll(); }
+    else { const d = await res.json(); toast.error(d.error || 'Gagal'); }
+  };
+  const deleteCommittee = async (id) => {
+    const res = await fetch(`/api/admin/committee/${id}`, { method: 'DELETE' });
+    if (res.ok) { toast.success('Anggota dihapus'); fetchAll(); }
+    else toast.error('Gagal menghapus');
+  };
+
+  // user management
   const addUser = async (form) => {
     const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     if (res.ok) { toast.success('Pengguna ditambahkan'); setOpenAddUser(false); fetchAll(); }
@@ -339,8 +408,9 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="tx" className="w-full">
-          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-3'} max-w-xl`}>
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-5' : 'grid-cols-4'} max-w-2xl`}>
             <TabsTrigger value="tx">Transaksi</TabsTrigger>
+            <TabsTrigger value="committee">Kepanitiaan</TabsTrigger>
             <TabsTrigger value="settings">Pengaturan</TabsTrigger>
             <TabsTrigger value="export">Export</TabsTrigger>
             {isAdmin && <TabsTrigger value="users">Pengguna</TabsTrigger>}
@@ -463,6 +533,79 @@ export default function AdminPage() {
               <DialogContent>
                 <DialogHeader><DialogTitle>Edit Transaksi</DialogTitle></DialogHeader>
                 {editTx && <TxForm initial={editTx} onSubmit={updateTx} onCancel={() => setEditTx(null)} />}
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
+
+          {/* KEPANITIAAN */}
+          <TabsContent value="committee">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><Crown className="w-5 h-5" /> Susunan Kepanitiaan</CardTitle>
+                  <CardDescription>Kelola anggota panitia HUT RI yang ditampilkan di halaman publik</CardDescription>
+                </div>
+                <Dialog open={openAddCommittee} onOpenChange={setOpenAddCommittee}>
+                  <DialogTrigger asChild><Button className="bg-red-600 hover:bg-red-700"><Plus className="w-4 h-4 mr-1.5" /> Tambah Anggota</Button></DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader><DialogTitle>Tambah Anggota Panitia</DialogTitle></DialogHeader>
+                    <CommitteeForm onSubmit={addCommittee} onCancel={() => setOpenAddCommittee(false)} />
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Order</TableHead>
+                        <TableHead>Nama</TableHead>
+                        <TableHead>Divisi / Jabatan</TableHead>
+                        <TableHead>Peran</TableHead>
+                        <TableHead className="text-right">Aksi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {committee.length === 0 ? (
+                        <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Belum ada data kepanitiaan</TableCell></TableRow>
+                      ) : committee.map((m) => (
+                        <TableRow key={m.id}>
+                          <TableCell className="text-xs text-muted-foreground">{m.order}</TableCell>
+                          <TableCell className="font-medium">{m.fullName}</TableCell>
+                          <TableCell><Badge variant="outline" className="text-xs">{(DIVISIONS.find(d => d.value === m.division)?.label) || m.division}</Badge></TableCell>
+                          <TableCell>{m.role === 'koordinator' ? <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Koordinator</Badge> : <Badge variant="outline">Anggota</Badge>}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button size="icon" variant="ghost" onClick={() => setEditCommittee(m)}><Pencil className="w-4 h-4" /></Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button size="icon" variant="ghost" className="text-red-600"><Trash2 className="w-4 h-4" /></Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Hapus {m.fullName}?</AlertDialogTitle>
+                                    <AlertDialogDescription>Aksi ini tidak dapat dibatalkan.</AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteCommittee(m.id)} className="bg-red-600 hover:bg-red-700">Hapus</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Dialog open={!!editCommittee} onOpenChange={(o) => !o && setEditCommittee(null)}>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Edit Anggota Panitia</DialogTitle></DialogHeader>
+                {editCommittee && <CommitteeForm initial={editCommittee} onSubmit={updateCommittee} onCancel={() => setEditCommittee(null)} />}
               </DialogContent>
             </Dialog>
           </TabsContent>

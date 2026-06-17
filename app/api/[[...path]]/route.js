@@ -37,11 +37,76 @@ async function ensureSettings() {
       targetAmount: 6000000,
       organizationName: ORG_NAME,
       eventName: 'HUT RI ke-80',
+      theme: 'Merajut Kebersamaan, Mengukir Prestasi, Menuju Indonesia Emas',
+      eventDate: '16-17 Agustus 2025',
+      eventLocation: 'Lapangan depan Rumah Asep, Sindangsari, Cabangbungin, Bekasi',
+      visiMisi: [
+        'Meningkatkan semangat nasionalisme dan rasa cinta tanah air',
+        'Mempererat tali silaturahmi antarwarga Lingkungan Poncol',
+        'Mengembangkan kreativitas pemuda-pemudi & warga melalui perlombaan',
+        'Mengenang jasa pahlawan dalam merebut kemerdekaan',
+        'Memeriahkan peringatan HUT RI ke-80 dengan suka cita',
+      ],
       proposalFile: null,
       proposalFileName: null,
       proposalMimeType: null,
       updatedAt: new Date().toISOString(),
     });
+  } else {
+    // Backward-compat: add missing fields
+    const patch = {};
+    if (existing.theme === undefined) patch.theme = 'Merajut Kebersamaan, Mengukir Prestasi, Menuju Indonesia Emas';
+    if (existing.eventDate === undefined) patch.eventDate = '16-17 Agustus 2025';
+    if (existing.eventLocation === undefined) patch.eventLocation = 'Lapangan depan Rumah Asep, Sindangsari, Cabangbungin, Bekasi';
+    if (existing.visiMisi === undefined) patch.visiMisi = [
+      'Meningkatkan semangat nasionalisme dan rasa cinta tanah air',
+      'Mempererat tali silaturahmi antarwarga Lingkungan Poncol',
+      'Mengembangkan kreativitas pemuda-pemudi & warga melalui perlombaan',
+      'Mengenang jasa pahlawan dalam merebut kemerdekaan',
+      'Memeriahkan peringatan HUT RI ke-80 dengan suka cita',
+    ];
+    if (Object.keys(patch).length) await settings.updateOne({ key: 'global' }, { $set: patch });
+  }
+}
+
+const INITIAL_COMMITTEE = [
+  { fullName: 'Ust. Sakri (Bp Amad)', division: 'pelindung', role: 'koordinator', order: 1 },
+  { fullName: 'Agus Salim', division: 'penasihat', role: 'koordinator', order: 2 },
+  { fullName: 'Aris Sunandar', division: 'ketua', role: 'koordinator', order: 3 },
+  { fullName: 'Shupardi', division: 'wakil-ketua', role: 'koordinator', order: 4 },
+  { fullName: 'Deden Hadiguna', division: 'sekretaris', role: 'koordinator', order: 5 },
+  { fullName: 'Asep Saepullah', division: 'bendahara', role: 'koordinator', order: 6 },
+  { fullName: 'Ahmad Nawawi', division: 'acara', role: 'koordinator', order: 10 },
+  { fullName: 'Ahmad Nahrowi', division: 'acara', role: 'anggota', order: 11 },
+  { fullName: 'Masir Manoe', division: 'acara', role: 'anggota', order: 12 },
+  { fullName: 'Hanafih', division: 'perlengkapan', role: 'koordinator', order: 20 },
+  { fullName: 'Nur Hidayat', division: 'perlengkapan', role: 'anggota', order: 21 },
+  { fullName: 'Tabriji', division: 'perlengkapan', role: 'anggota', order: 22 },
+  { fullName: 'Desya', division: 'konsumsi', role: 'koordinator', order: 30 },
+  { fullName: 'Dita', division: 'konsumsi', role: 'anggota', order: 31 },
+  { fullName: 'Desi', division: 'konsumsi', role: 'anggota', order: 32 },
+  { fullName: 'M. Rasim', division: 'dokumentasi', role: 'koordinator', order: 40 },
+  { fullName: 'Adi Maulana', division: 'dokumentasi', role: 'anggota', order: 41 },
+  { fullName: 'Obi Zakaria', division: 'dokumentasi', role: 'anggota', order: 42 },
+  { fullName: 'Syahrul', division: 'humas', role: 'koordinator', order: 50 },
+  { fullName: 'Dedi. S', division: 'humas', role: 'anggota', order: 51 },
+  { fullName: 'Hendra Prayoga', division: 'humas', role: 'anggota', order: 52 },
+  { fullName: 'Muh. Ajid', division: 'keamanan', role: 'koordinator', order: 60 },
+  { fullName: 'Azam', division: 'keamanan', role: 'anggota', order: 61 },
+  { fullName: 'Ridho Wahyudi', division: 'keamanan', role: 'anggota', order: 62 },
+];
+
+async function ensureCommittee() {
+  const db = await getDb();
+  const col = db.collection('committee');
+  const count = await col.countDocuments({});
+  if (count === 0) {
+    const docs = INITIAL_COMMITTEE.map((m) => ({
+      id: uuidv4(),
+      ...m,
+      createdAt: new Date().toISOString(),
+    }));
+    await col.insertMany(docs);
   }
 }
 
@@ -141,6 +206,20 @@ async function handleRoute(request, pathSegments) {
     });
   }
 
+  // ============= COMMITTEE (PUBLIC) =============
+  if (path === '/public/committee' && method === 'GET') {
+    await ensureCommittee();
+    const members = await db.collection('committee').find({}, { projection: { _id: 0 } }).sort({ order: 1 }).limit(200).toArray();
+    const settings = await db.collection('settings').findOne({ key: 'global' });
+    return json({
+      members,
+      theme: settings?.theme,
+      eventDate: settings?.eventDate,
+      eventLocation: settings?.eventLocation,
+      visiMisi: settings?.visiMisi || [],
+    });
+  }
+
   // ============= ADMIN (protected) =============
   const session = await requireAuth(request);
   if (path.startsWith('/admin/')) {
@@ -194,6 +273,10 @@ async function handleRoute(request, pathSegments) {
       targetAmount: settings.targetAmount,
       organizationName: settings.organizationName,
       eventName: settings.eventName,
+      theme: settings.theme,
+      eventDate: settings.eventDate,
+      eventLocation: settings.eventLocation,
+      visiMisi: settings.visiMisi || [],
       proposalFileName: settings.proposalFileName,
       hasProposal: !!settings.proposalFile,
     });
@@ -205,8 +288,55 @@ async function handleRoute(request, pathSegments) {
     if (body.targetAmount !== undefined) update.targetAmount = Number(body.targetAmount);
     if (body.organizationName !== undefined) update.organizationName = body.organizationName;
     if (body.eventName !== undefined) update.eventName = body.eventName;
+    if (body.theme !== undefined) update.theme = body.theme;
+    if (body.eventDate !== undefined) update.eventDate = body.eventDate;
+    if (body.eventLocation !== undefined) update.eventLocation = body.eventLocation;
+    if (body.visiMisi !== undefined && Array.isArray(body.visiMisi)) update.visiMisi = body.visiMisi.filter(v => v && v.trim());
     update.updatedAt = new Date().toISOString();
     await db.collection('settings').updateOne({ key: 'global' }, { $set: update });
+    return json({ ok: true });
+  }
+
+  // ============= COMMITTEE (admin) =============
+  if (path === '/admin/committee' && method === 'GET') {
+    await ensureCommittee();
+    const members = await db.collection('committee').find({}, { projection: { _id: 0 } }).sort({ order: 1 }).limit(200).toArray();
+    return json({ members });
+  }
+
+  if (path === '/admin/committee' && method === 'POST') {
+    const body = await request.json();
+    const { fullName, division, role, order } = body || {};
+    if (!fullName || !division) return json({ error: 'fullName & division wajib' }, { status: 400 });
+    const doc = {
+      id: uuidv4(),
+      fullName: String(fullName).trim(),
+      division,
+      role: role || 'anggota',
+      order: Number(order) || 999,
+      createdAt: new Date().toISOString(),
+    };
+    await db.collection('committee').insertOne(doc);
+    const { _id, ...clean } = doc;
+    return json({ ok: true, member: clean });
+  }
+
+  if (path.startsWith('/admin/committee/') && method === 'PUT') {
+    const id = path.split('/').pop();
+    const body = await request.json();
+    const update = {};
+    ['fullName', 'division', 'role'].forEach((k) => { if (body[k] !== undefined) update[k] = body[k]; });
+    if (body.order !== undefined) update.order = Number(body.order);
+    update.updatedAt = new Date().toISOString();
+    const r = await db.collection('committee').updateOne({ id }, { $set: update });
+    if (r.matchedCount === 0) return json({ error: 'Anggota tidak ditemukan' }, { status: 404 });
+    return json({ ok: true });
+  }
+
+  if (path.startsWith('/admin/committee/') && method === 'DELETE') {
+    const id = path.split('/').pop();
+    const r = await db.collection('committee').deleteOne({ id });
+    if (r.deletedCount === 0) return json({ error: 'Anggota tidak ditemukan' }, { status: 404 });
     return json({ ok: true });
   }
 

@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, TrendingUp, Users, Sparkles, Building2, Lock, FileText, Heart, PieChart as PieIcon } from 'lucide-react';
+import { Download, TrendingUp, Users, Sparkles, Building2, Lock, FileText, Heart, PieChart as PieIcon, Target, MapPin, Calendar, Crown, Shield, Star } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import Link from 'next/link';
 
@@ -24,19 +24,169 @@ const categoryStyle = {
 const categoryLabel = { warga: 'Warga', pemuda: 'Pemuda', sponsor: 'Sponsor', lainnya: 'Lainnya' };
 const CHART_COLORS = { warga: '#dc2626', pemuda: '#16a34a', sponsor: '#f59e0b', lainnya: '#64748b' };
 
+const DIVISION_LABELS = {
+  pelindung: 'Pelindung', penasihat: 'Penasihat',
+  ketua: 'Ketua Pelaksana', 'wakil-ketua': 'Wakil Ketua', sekretaris: 'Sekretaris', bendahara: 'Bendahara',
+  acara: 'Seksi Acara', perlengkapan: 'Seksi Perlengkapan', konsumsi: 'Seksi Konsumsi',
+  dokumentasi: 'Seksi Dokumentasi & Publikasi', humas: 'Seksi Humas & Dana Usaha', keamanan: 'Seksi Keamanan & Kebersihan',
+};
+const DIVISION_COLORS = {
+  pelindung: { bg: 'from-amber-500 to-amber-600', text: 'text-amber-700', ring: 'ring-amber-200', light: 'bg-amber-50' },
+  penasihat: { bg: 'from-amber-500 to-amber-600', text: 'text-amber-700', ring: 'ring-amber-200', light: 'bg-amber-50' },
+  ketua: { bg: 'from-red-600 to-red-700', text: 'text-red-700', ring: 'ring-red-200', light: 'bg-red-50' },
+  'wakil-ketua': { bg: 'from-red-500 to-red-600', text: 'text-red-700', ring: 'ring-red-200', light: 'bg-red-50' },
+  sekretaris: { bg: 'from-rose-500 to-rose-600', text: 'text-rose-700', ring: 'ring-rose-200', light: 'bg-rose-50' },
+  bendahara: { bg: 'from-rose-500 to-rose-600', text: 'text-rose-700', ring: 'ring-rose-200', light: 'bg-rose-50' },
+  acara: { bg: 'from-blue-500 to-blue-600', text: 'text-blue-700', ring: 'ring-blue-200', light: 'bg-blue-50' },
+  perlengkapan: { bg: 'from-orange-500 to-orange-600', text: 'text-orange-700', ring: 'ring-orange-200', light: 'bg-orange-50' },
+  konsumsi: { bg: 'from-yellow-500 to-yellow-600', text: 'text-yellow-700', ring: 'ring-yellow-200', light: 'bg-yellow-50' },
+  dokumentasi: { bg: 'from-purple-500 to-purple-600', text: 'text-purple-700', ring: 'ring-purple-200', light: 'bg-purple-50' },
+  humas: { bg: 'from-green-500 to-green-600', text: 'text-green-700', ring: 'ring-green-200', light: 'bg-green-50' },
+  keamanan: { bg: 'from-slate-500 to-slate-600', text: 'text-slate-700', ring: 'ring-slate-200', light: 'bg-slate-50' },
+};
+
+const getInitials = (name) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase();
+
+function PersonCard({ member, size = 'md' }) {
+  const c = DIVISION_COLORS[member.division] || DIVISION_COLORS.acara;
+  const sizes = {
+    sm: { avatar: 'w-10 h-10 text-xs', name: 'text-sm', pos: 'text-xs' },
+    md: { avatar: 'w-14 h-14 text-base', name: 'text-base', pos: 'text-xs' },
+    lg: { avatar: 'w-16 h-16 text-lg', name: 'text-lg', pos: 'text-sm' },
+  }[size];
+  return (
+    <div className={`flex items-center gap-3 p-3 rounded-lg ${c.light} ring-1 ${c.ring}`}>
+      <div className={`${sizes.avatar} rounded-full bg-gradient-to-br ${c.bg} text-white flex items-center justify-center font-bold shadow-md flex-shrink-0`}>
+        {getInitials(member.fullName)}
+      </div>
+      <div className="min-w-0">
+        <p className={`${sizes.name} font-semibold truncate ${c.text}`}>{member.fullName}</p>
+        {size !== 'sm' && <p className={`${sizes.pos} text-muted-foreground capitalize`}>{member.role === 'koordinator' ? 'Koordinator' : 'Anggota'}</p>}
+      </div>
+    </div>
+  );
+}
+
+function CommitteeSection({ members }) {
+  if (!members || members.length === 0) return null;
+  const byDiv = (d) => members.filter(m => m.division === d).sort((a, b) => a.order - b.order);
+  const single = (d) => byDiv(d)[0];
+  const SEKSI = ['acara', 'perlengkapan', 'konsumsi', 'dokumentasi', 'humas', 'keamanan'];
+
+  return (
+    <section className="container mx-auto px-4 pb-8">
+      <div className="text-center mb-6">
+        <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-0 mb-2">
+          <Crown className="w-3 h-3 mr-1" /> Susunan Kepanitiaan
+        </Badge>
+        <h2 className="text-2xl md:text-3xl font-bold text-red-700">Tim Pelaksana</h2>
+        <p className="text-muted-foreground text-sm mt-1">Pengurus dan panitia HUT RI ke-80 LIPPO 13 Pulo Ngandang</p>
+      </div>
+
+      {/* Pelindung & Penasihat */}
+      <div className="grid md:grid-cols-2 gap-3 mb-4 max-w-3xl mx-auto">
+        {['pelindung', 'penasihat'].map((d) => {
+          const m = single(d);
+          if (!m) return null;
+          const c = DIVISION_COLORS[d];
+          return (
+            <Card key={d} className="border-0 shadow-md overflow-hidden">
+              <div className={`bg-gradient-to-r ${c.bg} text-white px-4 py-2 text-xs font-bold uppercase tracking-wide flex items-center gap-1`}>
+                <Shield className="w-3 h-3" /> {DIVISION_LABELS[d]}
+              </div>
+              <CardContent className="p-4"><PersonCard member={m} size="lg" /></CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Ketua & Wakil */}
+      <div className="grid md:grid-cols-2 gap-3 mb-4 max-w-3xl mx-auto">
+        {['ketua', 'wakil-ketua'].map((d) => {
+          const m = single(d);
+          if (!m) return null;
+          const c = DIVISION_COLORS[d];
+          return (
+            <Card key={d} className="border-0 shadow-md overflow-hidden">
+              <div className={`bg-gradient-to-r ${c.bg} text-white px-4 py-2 text-xs font-bold uppercase tracking-wide flex items-center gap-1`}>
+                <Crown className="w-3 h-3" /> {DIVISION_LABELS[d]}
+              </div>
+              <CardContent className="p-4"><PersonCard member={m} size="lg" /></CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Sekretaris & Bendahara */}
+      <div className="grid md:grid-cols-2 gap-3 mb-6 max-w-3xl mx-auto">
+        {['sekretaris', 'bendahara'].map((d) => {
+          const m = single(d);
+          if (!m) return null;
+          const c = DIVISION_COLORS[d];
+          return (
+            <Card key={d} className="border-0 shadow-md overflow-hidden">
+              <div className={`bg-gradient-to-r ${c.bg} text-white px-4 py-2 text-xs font-bold uppercase tracking-wide`}>
+                {DIVISION_LABELS[d]}
+              </div>
+              <CardContent className="p-4"><PersonCard member={m} size="md" /></CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* 6 Seksi */}
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {SEKSI.map((d) => {
+          const list = byDiv(d);
+          if (list.length === 0) return null;
+          const koor = list.find(m => m.role === 'koordinator');
+          const anggota = list.filter(m => m.role !== 'koordinator');
+          const c = DIVISION_COLORS[d];
+          return (
+            <Card key={d} className="border-0 shadow-md overflow-hidden flex flex-col">
+              <div className={`bg-gradient-to-r ${c.bg} text-white px-4 py-2.5 text-sm font-bold`}>
+                {DIVISION_LABELS[d]}
+              </div>
+              <CardContent className="p-3 space-y-2 flex-1">
+                {koor && (
+                  <div>
+                    <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-1 px-1">Koordinator</p>
+                    <PersonCard member={koor} size="sm" />
+                  </div>
+                )}
+                {anggota.length > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-1 px-1">Anggota</p>
+                    <div className="space-y-1.5">
+                      {anggota.map((m) => <PersonCard key={m.id} member={m} size="sm" />)}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function HomePage() {
   const [summary, setSummary] = useState(null);
   const [transactions, setTransactions] = useState([]);
+  const [committee, setCommittee] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     try {
-      const [s, t] = await Promise.all([
+      const [s, t, c] = await Promise.all([
         fetch('/api/public/summary').then(r => r.json()),
         fetch('/api/public/transactions').then(r => r.json()),
+        fetch('/api/public/committee').then(r => r.json()),
       ]);
       setSummary(s);
       setTransactions(t.transactions || []);
+      setCommittee(c);
     } finally { setLoading(false); }
   };
 
@@ -186,6 +336,53 @@ export default function HomePage() {
           </Card>
         </div>
       </section>
+
+      {/* ===== TEMA & TUJUAN KEGIATAN ===== */}
+      <section className="container mx-auto px-4 pb-8">
+        <Card className="border-0 shadow-md overflow-hidden">
+          <div className="bg-gradient-to-br from-red-600 to-red-800 text-white p-6 md:p-8">
+            <Badge className="bg-yellow-400 text-yellow-900 hover:bg-yellow-400 mb-3 border-0">
+              <Star className="w-3 h-3 mr-1" /> Tema Kegiatan
+            </Badge>
+            <h2 className="text-2xl md:text-3xl font-bold mb-4 leading-snug">
+              &quot;{committee?.theme || 'Merajut Kebersamaan, Mengukir Prestasi, Menuju Indonesia Emas'}&quot;
+            </h2>
+            <div className="grid md:grid-cols-2 gap-4 mt-6">
+              <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-lg p-3">
+                <Calendar className="w-5 h-5 text-yellow-300 flex-shrink-0" />
+                <div>
+                  <p className="text-xs text-red-100">Tanggal</p>
+                  <p className="font-semibold">{committee?.eventDate || '16-17 Agustus 2025'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-lg p-3">
+                <MapPin className="w-5 h-5 text-yellow-300 flex-shrink-0" />
+                <div>
+                  <p className="text-xs text-red-100">Lokasi</p>
+                  <p className="font-semibold text-sm">{committee?.eventLocation || 'Lapangan Sindangsari, Cabangbungin'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <CardContent className="p-6 md:p-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="w-5 h-5 text-red-700" />
+              <h3 className="text-lg font-bold text-red-700">Tujuan Kegiatan</h3>
+            </div>
+            <div className="grid md:grid-cols-2 gap-3">
+              {(committee?.visiMisi || []).map((v, i) => (
+                <div key={i} className="flex items-start gap-3 p-3 bg-gradient-to-r from-red-50 to-green-50 rounded-lg border border-red-100">
+                  <div className="w-7 h-7 rounded-full bg-red-600 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">{i + 1}</div>
+                  <p className="text-sm text-slate-700">{v}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ===== SUSUNAN KEPANITIAAN ===== */}
+      <CommitteeSection members={committee?.members || []} />
 
       <section className="container mx-auto px-4 pb-12">
         <Card className="border-0 shadow-md">
