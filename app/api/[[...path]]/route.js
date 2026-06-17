@@ -45,6 +45,12 @@ async function ensureSettings() {
         'Melestarikan budaya dan tradisi khas 17 Agustus sebagai bentuk rasa syukur atas kemerdekaan Republik Indonesia.',
         'Menciptakan ruang interaksi yang harmonis, inklusif, dan menyenangkan bagi seluruh lapisan usia.',
       ],
+      paymentHolder: 'Mohamad Rasim',
+      paymentMethods: [
+        { type: 'bank', name: 'BCA', accountNumber: '8730939362', color: 'blue' },
+        { type: 'bank', name: 'SeaBank', accountNumber: '901481553555', color: 'cyan' },
+        { type: 'ewallet', name: 'DANA', accountNumber: '085778073299', color: 'sky' },
+      ],
       proposalFile: null,
       proposalFileName: null,
       proposalMimeType: null,
@@ -134,7 +140,14 @@ async function handleRoute(request, pathSegments) {
     if (!ok) return json({ error: 'Username atau password salah' }, { status: 401 });
     const token = await createSession({ uid: user.id, username: user.username, role: user.role });
     const res = json({ ok: true, user: { username: user.username, role: user.role, fullName: user.fullName } });
-    res.cookies.set(SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7 });
+    const isHttps = request.url.startsWith('https://') || request.headers.get('x-forwarded-proto') === 'https';
+    res.cookies.set(SESSION_COOKIE, token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+      secure: isHttps,
+    });
     return res;
   }
 
@@ -215,6 +228,8 @@ async function handleRoute(request, pathSegments) {
       eventDate: settings?.eventDate,
       eventLocation: settings?.eventLocation,
       visiMisi: settings?.visiMisi || [],
+      paymentHolder: settings?.paymentHolder,
+      paymentMethods: settings?.paymentMethods || [],
     });
   }
 

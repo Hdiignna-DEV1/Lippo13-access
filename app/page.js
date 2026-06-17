@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, TrendingUp, Users, Sparkles, Building2, Lock, FileText, Heart, PieChart as PieIcon, Target, MapPin, Calendar, Crown, Shield, Star } from 'lucide-react';
+import { Download, TrendingUp, Users, Sparkles, Building2, Lock, FileText, Heart, PieChart as PieIcon, Target, MapPin, Calendar, Crown, Shield, Star, Copy, Wallet, CreditCard, Smartphone } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import Link from 'next/link';
 
@@ -67,8 +67,83 @@ function PersonCard({ member, size = 'md' }) {
   );
 }
 
-function CommitteeSection({ members }) {
-  if (!members || members.length === 0) return null;
+function PaymentSection({ holder, methods }) {
+  const [copied, setCopied] = useState('');
+  if (!methods || methods.length === 0) return null;
+
+  const copyNumber = async (num, key) => {
+    try {
+      await navigator.clipboard.writeText(num);
+      setCopied(key);
+      setTimeout(() => setCopied(''), 2000);
+    } catch (e) { console.error('copy failed', e); }
+  };
+
+  const PAYMENT_STYLES = {
+    BCA: { bg: 'from-blue-600 to-blue-800', icon: CreditCard, accent: 'text-blue-100' },
+    SeaBank: { bg: 'from-cyan-500 to-cyan-700', icon: CreditCard, accent: 'text-cyan-100' },
+    DANA: { bg: 'from-sky-400 to-sky-600', icon: Smartphone, accent: 'text-sky-100' },
+  };
+
+  return (
+    <section className="container mx-auto px-4 pb-8">
+      <div className="text-center mb-6">
+        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0 mb-2">
+          <Wallet className="w-3 h-3 mr-1" /> Metode Pembayaran Iuran
+        </Badge>
+        <h2 className="text-2xl md:text-3xl font-bold text-red-700">Cara Setor Iuran</h2>
+        <p className="text-muted-foreground text-sm mt-1">Transfer ke salah satu rekening di bawah, lalu konfirmasi ke bendahara</p>
+      </div>
+
+      <div className="max-w-md mx-auto mb-4 p-3 rounded-lg bg-gradient-to-r from-red-50 to-green-50 border border-red-100 text-center">
+        <p className="text-xs text-muted-foreground">Atas Nama</p>
+        <p className="font-bold text-red-700 text-lg">{holder || 'Mohamad Rasim'}</p>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-3">
+        {methods.map((m, i) => {
+          const style = PAYMENT_STYLES[m.name] || { bg: 'from-slate-500 to-slate-700', icon: CreditCard, accent: 'text-slate-100' };
+          const Icon = style.icon;
+          const isCopied = copied === `${m.name}-${i}`;
+          return (
+            <Card key={i} className="border-0 shadow-lg overflow-hidden">
+              <div className={`bg-gradient-to-br ${style.bg} text-white p-5`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Icon className="w-5 h-5" />
+                    <span className="font-bold text-lg">{m.name}</span>
+                  </div>
+                  <Badge className={`bg-white/20 hover:bg-white/20 text-white border-0 text-[10px] uppercase`}>
+                    {m.type === 'ewallet' ? 'E-Wallet' : 'Bank'}
+                  </Badge>
+                </div>
+                <p className={`${style.accent} text-xs mb-1`}>Nomor {m.type === 'ewallet' ? 'DANA' : 'Rekening'}</p>
+                <p className="font-mono text-xl md:text-2xl font-bold tracking-wide select-all">{m.accountNumber}</p>
+              </div>
+              <CardContent className="p-3">
+                <Button
+                  onClick={() => copyNumber(m.accountNumber, `${m.name}-${i}`)}
+                  variant="outline"
+                  className="w-full"
+                  size="sm"
+                >
+                  <Copy className="w-3.5 h-3.5 mr-1.5" />
+                  {isCopied ? 'Tersalin!' : 'Salin Nomor'}
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <p className="text-center text-xs text-muted-foreground mt-4">
+        💡 Setelah transfer, mohon konfirmasi ke bendahara agar dapat dicatat dalam sistem.
+      </p>
+    </section>
+  );
+}
+
+function CommitteeSection({ members }) {  if (!members || members.length === 0) return null;
   const byDiv = (d) => members.filter(m => m.division === d).sort((a, b) => a.order - b.order);
   const single = (d) => byDiv(d)[0];
   const SEKSI = ['acara', 'perlengkapan', 'konsumsi', 'dokumentasi', 'humas', 'keamanan'];
@@ -384,6 +459,9 @@ export default function HomePage() {
           </CardContent>
         </Card>
       </section>
+
+      {/* ===== METODE PEMBAYARAN IURAN ===== */}
+      <PaymentSection holder={committee?.paymentHolder} methods={committee?.paymentMethods || []} />
 
       {/* ===== SUSUNAN KEPANITIAAN ===== */}
       <CommitteeSection members={committee?.members || []} />
