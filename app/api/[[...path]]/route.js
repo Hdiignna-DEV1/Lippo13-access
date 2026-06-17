@@ -126,7 +126,9 @@ async function handleRoute(request, pathSegments) {
     await ensureAdmin();
     const body = await request.json();
     const { username, password } = body || {};
-    const user = await db.collection('users').findOne({ username });
+    if (!username || !password) return json({ error: 'Username & password wajib' }, { status: 400 });
+    // Case-insensitive username lookup
+    const user = await db.collection('users').findOne({ username: { $regex: `^${String(username).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } });
     if (!user) return json({ error: 'Username atau password salah' }, { status: 401 });
     const ok = await bcrypt.compare(password || '', user.passwordHash);
     if (!ok) return json({ error: 'Username atau password salah' }, { status: 401 });
