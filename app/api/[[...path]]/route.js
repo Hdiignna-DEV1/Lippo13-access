@@ -92,7 +92,7 @@ async function handleRoute(request, pathSegments) {
   if (path === '/public/summary' && method === 'GET') {
     await ensureSettings();
     const settings = await db.collection('settings').findOne({ key: 'global' });
-    const txs = await db.collection('transactions').find({}).toArray();
+    const txs = await db.collection('transactions').find({}, { projection: { _id: 0 } }).limit(5000).toArray();
     let totalIn = 0, totalOut = 0;
     const byCategory = { warga: 0, pemuda: 0, sponsor: 0, lainnya: 0 };
     const monthly = {};
@@ -124,7 +124,7 @@ async function handleRoute(request, pathSegments) {
   }
 
   if (path === '/public/transactions' && method === 'GET') {
-    const txs = await db.collection('transactions').find({ type: 'in' }).sort({ date: -1, createdAt: -1 }).toArray();
+    const txs = await db.collection('transactions').find({ type: 'in' }, { projection: { _id: 0 } }).sort({ date: -1, createdAt: -1 }).limit(500).toArray();
     return json({ transactions: txs.map(stripId) });
   }
 
@@ -148,7 +148,7 @@ async function handleRoute(request, pathSegments) {
   }
 
   if (path === '/admin/transactions' && method === 'GET') {
-    const txs = await db.collection('transactions').find({}).sort({ date: -1, createdAt: -1 }).toArray();
+    const txs = await db.collection('transactions').find({}, { projection: { _id: 0 } }).sort({ date: -1, createdAt: -1 }).limit(1000).toArray();
     return json({ transactions: txs.map(stripId) });
   }
 
@@ -232,7 +232,7 @@ async function handleRoute(request, pathSegments) {
   // ============= USER MANAGEMENT (admin only) =============
   if (path === '/admin/users' && method === 'GET') {
     if (session.role !== 'admin') return json({ error: 'Hanya admin yang bisa mengakses' }, { status: 403 });
-    const users = await db.collection('users').find({}).sort({ createdAt: 1 }).toArray();
+    const users = await db.collection('users').find({}, { projection: { passwordHash: 0, _id: 0 } }).sort({ createdAt: 1 }).limit(200).toArray();
     return json({ users: users.map(stripSensitive) });
   }
 
@@ -282,7 +282,7 @@ async function handleRoute(request, pathSegments) {
     const url = new URL(request.url);
     const type = url.searchParams.get('type');
     const filter = type ? { type } : {};
-    const txs = await db.collection('transactions').find(filter).sort({ date: 1, createdAt: 1 }).toArray();
+    const txs = await db.collection('transactions').find(filter, { projection: { _id: 0 } }).sort({ date: 1, createdAt: 1 }).limit(10000).toArray();
     const rows = txs.map((t) => ({
       Tanggal: t.date, Nama: t.name, Kategori: t.category,
       Jenis: t.type === 'in' ? 'Pemasukan' : 'Pengeluaran',
@@ -302,7 +302,7 @@ async function handleRoute(request, pathSegments) {
     const url = new URL(request.url);
     const type = url.searchParams.get('type');
     const filter = type ? { type } : {};
-    const txs = await db.collection('transactions').find(filter).sort({ date: 1, createdAt: 1 }).toArray();
+    const txs = await db.collection('transactions').find(filter, { projection: { _id: 0 } }).sort({ date: 1, createdAt: 1 }).limit(10000).toArray();
     const rows = txs.map((t) => ({
       Tanggal: t.date, Nama: t.name, Kategori: t.category,
       Jenis: t.type === 'in' ? 'Pemasukan' : 'Pengeluaran',
