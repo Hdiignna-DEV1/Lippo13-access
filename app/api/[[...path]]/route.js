@@ -140,13 +140,12 @@ async function handleRoute(request, pathSegments) {
     if (!ok) return json({ error: 'Username atau password salah' }, { status: 401 });
     const token = await createSession({ uid: user.id, username: user.username, role: user.role });
     const res = json({ ok: true, user: { username: user.username, role: user.role, fullName: user.fullName } });
-    const isHttps = request.url.startsWith('https://') || request.headers.get('x-forwarded-proto') === 'https';
     res.cookies.set(SESSION_COOKIE, token, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: 'none',
+      secure: true,
       path: '/',
       maxAge: 60 * 60 * 24 * 7,
-      secure: isHttps,
     });
     return res;
   }
