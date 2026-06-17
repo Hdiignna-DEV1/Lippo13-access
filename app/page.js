@@ -80,7 +80,7 @@ function CommitteeSection({ members }) {
           <Crown className="w-3 h-3 mr-1" /> Susunan Kepanitiaan
         </Badge>
         <h2 className="text-2xl md:text-3xl font-bold text-red-700">Tim Pelaksana</h2>
-        <p className="text-muted-foreground text-sm mt-1">Pengurus dan panitia HUT RI ke-80 LIPPO 13 Pulo Ngandang</p>
+        <p className="text-muted-foreground text-sm mt-1">Pengurus dan panitia LIPPO 13 Pulo Ngandang</p>
       </div>
 
       {/* Pelindung & Penasihat */}
@@ -227,7 +227,7 @@ export default function HomePage() {
             </div>
             <div>
               <Badge className="bg-green-400 text-green-900 hover:bg-green-400 mb-3 border-0">
-                <Heart className="w-3 h-3 mr-1" /> {summary?.eventName || 'HUT RI ke-80'}
+                <Heart className="w-3 h-3 mr-1" /> {summary?.eventName || 'HUT RI ke-81'}
               </Badge>
               <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-2">
                 Transparansi Iuran<br />
@@ -344,15 +344,19 @@ export default function HomePage() {
             <Badge className="bg-yellow-400 text-yellow-900 hover:bg-yellow-400 mb-3 border-0">
               <Star className="w-3 h-3 mr-1" /> Tema Kegiatan
             </Badge>
-            <h2 className="text-2xl md:text-3xl font-bold mb-4 leading-snug">
-              &quot;{committee?.theme || 'Merajut Kebersamaan, Mengukir Prestasi, Menuju Indonesia Emas'}&quot;
-            </h2>
+            <div className="space-y-2 mb-4">
+              {(committee?.theme || 'Semarak 81 Tahun Merdeka: Bangkit Bersama, Bergerak Nyata, Berdampak Raya.\nMerajut Asa Kemerdekaan: Warga Rukun, Indonesia Tangguh.').split('\n').filter(Boolean).map((line, i) => (
+                <h2 key={i} className="text-xl md:text-2xl font-bold leading-snug">
+                  &quot;{line}&quot;
+                </h2>
+              ))}
+            </div>
             <div className="grid md:grid-cols-2 gap-4 mt-6">
               <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-lg p-3">
                 <Calendar className="w-5 h-5 text-yellow-300 flex-shrink-0" />
                 <div>
                   <p className="text-xs text-red-100">Tanggal</p>
-                  <p className="font-semibold">{committee?.eventDate || '16-17 Agustus 2025'}</p>
+                  <p className="font-semibold">{committee?.eventDate || '16-17 Agustus 2026'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-lg p-3">

@@ -36,16 +36,14 @@ async function ensureSettings() {
       key: 'global',
       targetAmount: 6000000,
       organizationName: ORG_NAME,
-      eventName: 'HUT RI ke-80',
-      theme: 'Merajut Kebersamaan, Mengukir Prestasi, Menuju Indonesia Emas',
-      eventDate: '16-17 Agustus 2025',
+      eventName: 'HUT RI ke-81',
+      theme: 'Semarak 81 Tahun Merdeka: Bangkit Bersama, Bergerak Nyata, Berdampak Raya.\nMerajut Asa Kemerdekaan: Warga Rukun, Indonesia Tangguh.',
+      eventDate: '16-17 Agustus 2026',
       eventLocation: 'Lapangan depan Rumah Asep, Sindangsari, Cabangbungin, Bekasi',
       visiMisi: [
-        'Meningkatkan semangat nasionalisme dan rasa cinta tanah air',
-        'Mempererat tali silaturahmi antarwarga Lingkungan Poncol',
-        'Mengembangkan kreativitas pemuda-pemudi & warga melalui perlombaan',
-        'Mengenang jasa pahlawan dalam merebut kemerdekaan',
-        'Memeriahkan peringatan HUT RI ke-80 dengan suka cita',
+        'Menumbuhkan kembali semangat gotong royong dan kepedulian sosial di tengah lingkungan.',
+        'Melestarikan budaya dan tradisi khas 17 Agustus sebagai bentuk rasa syukur atas kemerdekaan Republik Indonesia.',
+        'Menciptakan ruang interaksi yang harmonis, inklusif, dan menyenangkan bagi seluruh lapisan usia.',
       ],
       proposalFile: null,
       proposalFileName: null,
@@ -55,15 +53,13 @@ async function ensureSettings() {
   } else {
     // Backward-compat: add missing fields
     const patch = {};
-    if (existing.theme === undefined) patch.theme = 'Merajut Kebersamaan, Mengukir Prestasi, Menuju Indonesia Emas';
-    if (existing.eventDate === undefined) patch.eventDate = '16-17 Agustus 2025';
+    if (existing.theme === undefined) patch.theme = 'Semarak 81 Tahun Merdeka: Bangkit Bersama, Bergerak Nyata, Berdampak Raya.\nMerajut Asa Kemerdekaan: Warga Rukun, Indonesia Tangguh.';
+    if (existing.eventDate === undefined) patch.eventDate = '16-17 Agustus 2026';
     if (existing.eventLocation === undefined) patch.eventLocation = 'Lapangan depan Rumah Asep, Sindangsari, Cabangbungin, Bekasi';
     if (existing.visiMisi === undefined) patch.visiMisi = [
-      'Meningkatkan semangat nasionalisme dan rasa cinta tanah air',
-      'Mempererat tali silaturahmi antarwarga Lingkungan Poncol',
-      'Mengembangkan kreativitas pemuda-pemudi & warga melalui perlombaan',
-      'Mengenang jasa pahlawan dalam merebut kemerdekaan',
-      'Memeriahkan peringatan HUT RI ke-80 dengan suka cita',
+      'Menumbuhkan kembali semangat gotong royong dan kepedulian sosial di tengah lingkungan.',
+      'Melestarikan budaya dan tradisi khas 17 Agustus sebagai bentuk rasa syukur atas kemerdekaan Republik Indonesia.',
+      'Menciptakan ruang interaksi yang harmonis, inklusif, dan menyenangkan bagi seluruh lapisan usia.',
     ];
     if (Object.keys(patch).length) await settings.updateOne({ key: 'global' }, { $set: patch });
   }
