@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Lock, Sparkles, ArrowLeft } from 'lucide-react';
+import { Lock, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
@@ -29,14 +30,12 @@ export default function LoginPage() {
       if (!res.ok) {
         toast.error(data.error || 'Login gagal');
       } else {
-        toast.success('Selamat datang, ' + data.user.username);
+        toast.success('Selamat datang, ' + (data.user.fullName || data.user.username));
         router.push('/admin');
       }
     } catch {
       toast.error('Terjadi kesalahan jaringan');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   return (
@@ -48,26 +47,25 @@ export default function LoginPage() {
         </Link>
         <Card className="shadow-2xl border-0">
           <CardHeader className="text-center pb-2">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center mb-3 shadow-md">
-              <Sparkles className="w-7 h-7 text-white" />
+            <div className="w-20 h-20 mx-auto rounded-2xl overflow-hidden ring-4 ring-red-100 shadow-md mb-3">
+              <Image src="/assets/logo.jpg" alt="LIPPO 13" width={80} height={80} className="object-cover w-full h-full" />
             </div>
             <CardTitle className="text-xl text-red-700">Panel Pengurus</CardTitle>
-            <CardDescription>Karang Taruna Kp. Pulo Ngandang</CardDescription>
+            <CardDescription>LIPPO 13 — Karang Taruna Pulo Ngandang</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="username">Username</Label>
-                <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin" required autoComplete="username" />
+                <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Masukkan username" required autoComplete="username" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required autoComplete="current-password" />
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Masukkan password" required autoComplete="current-password" />
               </div>
               <Button type="submit" disabled={loading} className="w-full bg-red-600 hover:bg-red-700 text-white">
                 <Lock className="w-4 h-4 mr-2" /> {loading ? 'Memproses...' : 'Masuk'}
               </Button>
-              <p className="text-xs text-center text-muted-foreground pt-2">Default: admin / admin123</p>
             </form>
           </CardContent>
         </Card>

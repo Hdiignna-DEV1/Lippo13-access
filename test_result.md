@@ -214,6 +214,66 @@ backend:
         agent: "testing"
         comment: "✅ TESTED: GET /api/admin/export returns 200 with Content-Type text/csv, includes BOM (\\uFEFF) for Excel compatibility, and contains proper headers (Tanggal, Nama, Kategori, Jenis, Jumlah, Keterangan, Dibuat). Filter ?type=in returns only Pemasukan rows. Filter ?type=out returns only Pengeluaran rows (correctly returns empty when no out transactions exist). All CSV export operations working correctly."
 
+  - task: "Auth with New Credentials - Phase 2"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "PHASE 2: Changed admin credentials to dedenhadiguna / Hadiguna18*. Old admin/admin123 user deleted."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Login with old admin/admin123 returns 401 (user deleted). Login with new dedenhadiguna/Hadiguna18* returns 200 and sets kt_session cookie. GET /api/auth/me returns correct user data with username=dedenhadiguna, role=admin, fullName=Deden Hadiguna. Minor fix applied: Added fullName to existing admin user in database."
+
+  - task: "User Management - GET/POST/PUT/DELETE /api/admin/users"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "PHASE 2: Admin-only endpoints for user management. GET lists users, POST creates user with roles (admin/bendahara/pengurus), PUT updates user (fullName, role, password), DELETE removes user (cannot delete self)."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: GET /api/admin/users returns user list (admin only, bendahara gets 403). POST creates bendahara user successfully, duplicate username returns 400, missing password returns 400. Created bendahara user can login and access regular admin endpoints but not /api/admin/users. PUT updates fullName, role, and password successfully (verified new password works). DELETE prevents self-deletion (400), successfully deletes other users. All 10 user management tests passed."
+
+  - task: "Excel Export - GET /api/admin/export/excel"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "PHASE 2: Returns xlsx file with transactions. Supports ?type=in|out filter. Includes summary footer rows (TOTAL PEMASUKAN, TOTAL PENGELUARAN, SALDO)."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: GET /api/admin/export/excel returns 200 with Content-Type application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, Content-Disposition header with .xlsx filename, body size >1000 bytes (18465 bytes for full export). Filter ?type=in returns only pemasukan transactions (18161 bytes). Filter ?type=out returns only pengeluaran transactions (17034 bytes). All Excel export tests passed."
+
+  - task: "Monthly Data in Public Summary - Phase 2"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "PHASE 2: GET /api/public/summary now includes 'monthly' array with {month, total} objects sorted by month (YYYY-MM format). Only includes pemasukan (type=in) transactions."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: GET /api/public/summary returns monthly array with correct data. After creating transactions in 2025-08 and 2025-09, monthly array contains entries for both months with correct totals (2025-08: 250000, 2025-09: 200000). Array is properly sorted by month. Monthly data test passed."
+
 frontend:
   - task: "Public Dashboard (page.js)"
     implemented: true
@@ -242,7 +302,7 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 3
   run_ui: false
 
 test_plan:
@@ -259,6 +319,26 @@ agent_communication:
       Default settings auto-seeded on /api/public/summary or /api/admin/settings GET (target Rp 6,000,000, organizationName="Karang Taruna Kp. Pulo Ngandang", eventName="HUT RI ke-80").
       Auth uses httpOnly cookie "kt_session" - the testing agent must persist cookies across requests when testing admin endpoints.
       Please test all backend endpoints thoroughly: auth flow, public endpoints, admin CRUD (with cookie auth), settings, proposal upload (small base64 PDF), and CSV export.
+
+  - agent: "main"
+    message: |
+      PHASE 2 — Added new features. NEW credentials: ADMIN_USERNAME=dedenhadiguna, ADMIN_PASSWORD=Hadiguna18*.
+      Wiped users collection and re-seeded with new credentials. Org name now "LIPPO 13 Pulo Ngandang".
+
+      NEW backend endpoints to test:
+      1. GET /api/admin/users — list all users (admin role only). Should return list with new admin "dedenhadiguna".
+      2. POST /api/admin/users — body {username, password, fullName, role: "admin"|"bendahara"|"pengurus"}. Creates new user. Test creating role=bendahara user, then login with that user to verify it works.
+      3. PUT /api/admin/users/:id — update fullName, role, password (optional).
+      4. DELETE /api/admin/users/:id — remove user. Should reject deleting own account (400).
+      5. Non-admin user trying to access /api/admin/users should get 403.
+      6. GET /api/admin/export/excel?type=in|out|null — returns xlsx file with Content-Type application/vnd.openxmlformats-officedocument.spreadsheetml.sheet. Body includes summary footer rows TOTAL PEMASUKAN/PENGELUARAN/SALDO.
+      7. GET /api/public/summary — now also returns `monthly` array sorted by month (format YYYY-MM with total). Verify after creating transactions in different months.
+
+      RE-TESTS (since admin user changed):
+      - Login with dedenhadiguna / Hadiguna18* should work
+      - All existing CRUD endpoints still work with new auth
+
+      Use Python requests.Session() to persist cookies.
   - agent: "testing"
     message: |
       ✅ BACKEND TESTING COMPLETE - ALL ENDPOINTS WORKING
@@ -277,3 +357,48 @@ agent_communication:
       ✅ CSV Export - Returns CSV with BOM, proper headers, filters work correctly
       
       No critical issues found. Backend is production-ready.
+
+  - agent: "testing"
+    message: |
+      ✅ PHASE 2 BACKEND TESTING COMPLETE - ALL 26 TESTS PASSED
+      
+      Comprehensive Phase 2 testing completed successfully. All new features working correctly:
+      
+      1. AUTH WITH NEW CREDENTIALS (3/3 tests passed):
+         ✅ Old admin/admin123 credentials correctly rejected (401)
+         ✅ New dedenhadiguna/Hadiguna18* credentials work
+         ✅ /api/auth/me returns fullName field (minor fix: added fullName to existing admin user)
+      
+      2. USER MANAGEMENT (10/10 tests passed):
+         ✅ GET /api/admin/users lists users (admin only)
+         ✅ POST creates bendahara user with all roles
+         ✅ Duplicate username validation (400)
+         ✅ Missing password validation (400)
+         ✅ Bendahara user can login and access regular admin endpoints
+         ✅ Bendahara user blocked from /api/admin/users (403)
+         ✅ PUT updates fullName, role, and password
+         ✅ Password update verified working
+         ✅ DELETE prevents self-deletion (400)
+         ✅ DELETE removes other users successfully
+      
+      3. EXCEL EXPORT (3/3 tests passed):
+         ✅ GET /api/admin/export/excel returns valid xlsx (18465 bytes)
+         ✅ Filter ?type=in returns only pemasukan (18161 bytes)
+         ✅ Filter ?type=out returns only pengeluaran (17034 bytes)
+      
+      4. MONTHLY DATA (1/1 test passed):
+         ✅ GET /api/public/summary includes monthly array with correct totals, sorted by month
+      
+      5. EXISTING ENDPOINTS RE-VERIFIED (5/5 tests passed):
+         ✅ Create transaction
+         ✅ Update transaction
+         ✅ Get settings
+         ✅ Update settings
+         ✅ CSV export
+      
+      6. FULLNAME FIELD (1/1 test passed):
+         ✅ /api/auth/me returns fullName correctly
+      
+      MINOR FIX APPLIED: Added fullName='Deden Hadiguna' to existing admin user in database (was missing during user creation).
+      
+      All test transactions cleaned up. Dashboard ready for user demo.

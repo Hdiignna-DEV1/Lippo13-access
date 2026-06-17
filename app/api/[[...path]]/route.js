@@ -4,9 +4,11 @@ import { createSession, verifyToken, SESSION_COOKIE } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const ORG_NAME = process.env.ORG_NAME || 'LIPPO 13 Pulo Ngandang';
 
 async function ensureAdmin() {
   const db = await getDb();
@@ -19,6 +21,7 @@ async function ensureAdmin() {
       username: ADMIN_USERNAME,
       passwordHash: hash,
       role: 'admin',
+      fullName: 'Administrator',
       createdAt: new Date().toISOString(),
     });
   }
@@ -32,7 +35,7 @@ async function ensureSettings() {
     await settings.insertOne({
       key: 'global',
       targetAmount: 6000000,
-      organizationName: 'Karang Taruna Kp. Pulo Ngandang',
+      organizationName: ORG_NAME,
       eventName: 'HUT RI ke-80',
       proposalFile: null,
       proposalFileName: null,
@@ -48,15 +51,9 @@ async function requireAuth(request) {
   return await verifyToken(token);
 }
 
-function json(data, init) {
-  return NextResponse.json(data, init);
-}
-
-function stripId(doc) {
-  if (!doc) return doc;
-  const { _id, ...rest } = doc;
-  return rest;
-}
+function json(data, init) { return NextResponse.json(data, init); }
+function stripId(doc) { if (!doc) return doc; const { _id, ...r } = doc; return r; }
+function stripSensitive(u) { if (!u) return u; const { _id, passwordHash, ...r } = u; return r; }
 
 async function handleRoute(request, pathSegments) {
   const method = request.method;
@@ -73,13 +70,8 @@ async function handleRoute(request, pathSegments) {
     const ok = await bcrypt.compare(password || '', user.passwordHash);
     if (!ok) return json({ error: 'Username atau password salah' }, { status: 401 });
     const token = await createSession({ uid: user.id, username: user.username, role: user.role });
-    const res = json({ ok: true, user: { username: user.username, role: user.role } });
-    res.cookies.set(SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    const res = json({ ok: true, user: { username: user.username, role: user.role, fullName: user.fullName } });
+    res.cookies.set(SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7 });
     return res;
   }
 
@@ -92,7 +84,8 @@ async function handleRoute(request, pathSegments) {
   if (path === '/auth/me' && method === 'GET') {
     const session = await requireAuth(request);
     if (!session) return json({ authenticated: false });
-    return json({ authenticated: true, user: { username: session.username, role: session.role } });
+    const u = await db.collection('users').findOne({ id: session.uid });
+    return json({ authenticated: true, user: stripSensitive(u) });
   }
 
   // ============= PUBLIC =============
@@ -102,23 +95,27 @@ async function handleRoute(request, pathSegments) {
     const txs = await db.collection('transactions').find({}).toArray();
     let totalIn = 0, totalOut = 0;
     const byCategory = { warga: 0, pemuda: 0, sponsor: 0, lainnya: 0 };
+    const monthly = {};
     for (const t of txs) {
       if (t.type === 'in') {
         totalIn += Number(t.amount || 0);
         const cat = (t.category || 'lainnya').toLowerCase();
         if (byCategory[cat] !== undefined) byCategory[cat] += Number(t.amount || 0);
         else byCategory.lainnya += Number(t.amount || 0);
+        const ym = (t.date || '').slice(0, 7);
+        if (ym) monthly[ym] = (monthly[ym] || 0) + Number(t.amount || 0);
       } else if (t.type === 'out') {
         totalOut += Number(t.amount || 0);
       }
     }
+    const monthlyArr = Object.entries(monthly).sort(([a],[b]) => a.localeCompare(b)).map(([m, v]) => ({ month: m, total: v }));
     return json({
       target: settings.targetAmount,
-      totalIn,
-      totalOut,
+      totalIn, totalOut,
       balance: totalIn - totalOut,
       progress: settings.targetAmount > 0 ? Math.min(100, (totalIn / settings.targetAmount) * 100) : 0,
       byCategory,
+      monthly: monthlyArr,
       txCount: txs.length,
       organizationName: settings.organizationName,
       eventName: settings.eventName,
@@ -127,18 +124,13 @@ async function handleRoute(request, pathSegments) {
   }
 
   if (path === '/public/transactions' && method === 'GET') {
-    const txs = await db.collection('transactions')
-      .find({ type: 'in' })
-      .sort({ date: -1, createdAt: -1 })
-      .toArray();
+    const txs = await db.collection('transactions').find({ type: 'in' }).sort({ date: -1, createdAt: -1 }).toArray();
     return json({ transactions: txs.map(stripId) });
   }
 
   if (path === '/public/proposal' && method === 'GET') {
     const settings = await db.collection('settings').findOne({ key: 'global' });
-    if (!settings?.proposalFile) {
-      return json({ error: 'Belum ada proposal' }, { status: 404 });
-    }
+    if (!settings?.proposalFile) return json({ error: 'Belum ada proposal' }, { status: 404 });
     const buffer = Buffer.from(settings.proposalFile, 'base64');
     return new NextResponse(buffer, {
       status: 200,
@@ -156,29 +148,19 @@ async function handleRoute(request, pathSegments) {
   }
 
   if (path === '/admin/transactions' && method === 'GET') {
-    const txs = await db.collection('transactions')
-      .find({})
-      .sort({ date: -1, createdAt: -1 })
-      .toArray();
+    const txs = await db.collection('transactions').find({}).sort({ date: -1, createdAt: -1 }).toArray();
     return json({ transactions: txs.map(stripId) });
   }
 
   if (path === '/admin/transactions' && method === 'POST') {
     const body = await request.json();
     const { date, name, category, amount, note, type } = body || {};
-    if (!date || !name || !amount || !type) {
-      return json({ error: 'Field wajib: date, name, amount, type' }, { status: 400 });
-    }
+    if (!date || !name || !amount || !type) return json({ error: 'Field wajib: date, name, amount, type' }, { status: 400 });
     const doc = {
-      id: uuidv4(),
-      date,
-      name: String(name).trim(),
+      id: uuidv4(), date, name: String(name).trim(),
       category: (category || 'lainnya').toLowerCase(),
-      amount: Number(amount),
-      note: note || '',
-      type, // 'in' or 'out'
-      createdAt: new Date().toISOString(),
-      createdBy: session.username,
+      amount: Number(amount), note: note || '', type,
+      createdAt: new Date().toISOString(), createdBy: session.username,
     };
     await db.collection('transactions').insertOne(doc);
     return json({ ok: true, transaction: stripId(doc) });
@@ -234,14 +216,7 @@ async function handleRoute(request, pathSegments) {
     if (!fileBase64 || !fileName) return json({ error: 'File required' }, { status: 400 });
     await db.collection('settings').updateOne(
       { key: 'global' },
-      {
-        $set: {
-          proposalFile: fileBase64,
-          proposalFileName: fileName,
-          proposalMimeType: mimeType || 'application/pdf',
-          updatedAt: new Date().toISOString(),
-        },
-      }
+      { $set: { proposalFile: fileBase64, proposalFileName: fileName, proposalMimeType: mimeType || 'application/pdf', updatedAt: new Date().toISOString() } }
     );
     return json({ ok: true });
   }
@@ -249,33 +224,69 @@ async function handleRoute(request, pathSegments) {
   if (path === '/admin/settings/proposal' && method === 'DELETE') {
     await db.collection('settings').updateOne(
       { key: 'global' },
-      {
-        $set: {
-          proposalFile: null,
-          proposalFileName: null,
-          proposalMimeType: null,
-        },
-      }
+      { $set: { proposalFile: null, proposalFileName: null, proposalMimeType: null } }
     );
     return json({ ok: true });
   }
 
+  // ============= USER MANAGEMENT (admin only) =============
+  if (path === '/admin/users' && method === 'GET') {
+    if (session.role !== 'admin') return json({ error: 'Hanya admin yang bisa mengakses' }, { status: 403 });
+    const users = await db.collection('users').find({}).sort({ createdAt: 1 }).toArray();
+    return json({ users: users.map(stripSensitive) });
+  }
+
+  if (path === '/admin/users' && method === 'POST') {
+    if (session.role !== 'admin') return json({ error: 'Hanya admin yang bisa membuat user' }, { status: 403 });
+    const body = await request.json();
+    const { username, password, fullName, role } = body || {};
+    if (!username || !password) return json({ error: 'username & password wajib' }, { status: 400 });
+    const existing = await db.collection('users').findOne({ username });
+    if (existing) return json({ error: 'Username sudah dipakai' }, { status: 400 });
+    const hash = await bcrypt.hash(password, 10);
+    const doc = {
+      id: uuidv4(), username, passwordHash: hash,
+      fullName: fullName || username,
+      role: ['admin', 'bendahara', 'pengurus'].includes(role) ? role : 'pengurus',
+      createdAt: new Date().toISOString(),
+    };
+    await db.collection('users').insertOne(doc);
+    return json({ ok: true, user: stripSensitive(doc) });
+  }
+
+  if (path.startsWith('/admin/users/') && method === 'PUT') {
+    if (session.role !== 'admin') return json({ error: 'Forbidden' }, { status: 403 });
+    const id = path.split('/').pop();
+    const body = await request.json();
+    const update = {};
+    if (body.fullName !== undefined) update.fullName = body.fullName;
+    if (body.role !== undefined && ['admin', 'bendahara', 'pengurus'].includes(body.role)) update.role = body.role;
+    if (body.password) update.passwordHash = await bcrypt.hash(body.password, 10);
+    update.updatedAt = new Date().toISOString();
+    const r = await db.collection('users').updateOne({ id }, { $set: update });
+    if (r.matchedCount === 0) return json({ error: 'User tidak ditemukan' }, { status: 404 });
+    return json({ ok: true });
+  }
+
+  if (path.startsWith('/admin/users/') && method === 'DELETE') {
+    if (session.role !== 'admin') return json({ error: 'Forbidden' }, { status: 403 });
+    const id = path.split('/').pop();
+    if (id === session.uid) return json({ error: 'Tidak bisa menghapus akun sendiri' }, { status: 400 });
+    const r = await db.collection('users').deleteOne({ id });
+    if (r.deletedCount === 0) return json({ error: 'User tidak ditemukan' }, { status: 404 });
+    return json({ ok: true });
+  }
+
+  // ============= EXPORT =============
   if (path === '/admin/export' && method === 'GET') {
     const url = new URL(request.url);
-    const type = url.searchParams.get('type'); // 'in' | 'out' | null (all)
+    const type = url.searchParams.get('type');
     const filter = type ? { type } : {};
-    const txs = await db.collection('transactions')
-      .find(filter)
-      .sort({ date: 1, createdAt: 1 })
-      .toArray();
+    const txs = await db.collection('transactions').find(filter).sort({ date: 1, createdAt: 1 }).toArray();
     const rows = txs.map((t) => ({
-      Tanggal: t.date,
-      Nama: t.name,
-      Kategori: t.category,
+      Tanggal: t.date, Nama: t.name, Kategori: t.category,
       Jenis: t.type === 'in' ? 'Pemasukan' : 'Pengeluaran',
-      Jumlah: t.amount,
-      Keterangan: t.note || '',
-      Dibuat: t.createdAt,
+      Jumlah: t.amount, Keterangan: t.note || '', Dibuat: t.createdAt,
     }));
     const csv = Papa.unparse(rows);
     return new NextResponse('\uFEFF' + csv, {
@@ -287,46 +298,52 @@ async function handleRoute(request, pathSegments) {
     });
   }
 
-  if (path === '/' || path === '') {
-    return json({ name: 'Karang Taruna Pulo Ngandang - Sistem Keuangan', status: 'ok' });
+  if (path === '/admin/export/excel' && method === 'GET') {
+    const url = new URL(request.url);
+    const type = url.searchParams.get('type');
+    const filter = type ? { type } : {};
+    const txs = await db.collection('transactions').find(filter).sort({ date: 1, createdAt: 1 }).toArray();
+    const rows = txs.map((t) => ({
+      Tanggal: t.date, Nama: t.name, Kategori: t.category,
+      Jenis: t.type === 'in' ? 'Pemasukan' : 'Pengeluaran',
+      Jumlah: t.amount, Keterangan: t.note || '', Dibuat: t.createdAt,
+    }));
+    const totalIn = txs.filter(t => t.type === 'in').reduce((s, t) => s + Number(t.amount), 0);
+    const totalOut = txs.filter(t => t.type === 'out').reduce((s, t) => s + Number(t.amount), 0);
+    rows.push({});
+    rows.push({ Tanggal: 'TOTAL PEMASUKAN', Jumlah: totalIn });
+    rows.push({ Tanggal: 'TOTAL PENGELUARAN', Jumlah: totalOut });
+    rows.push({ Tanggal: 'SALDO', Jumlah: totalIn - totalOut });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch: 18 }, { wch: 28 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 30 }, { wch: 22 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Rekap Keuangan');
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    return new NextResponse(buffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="rekap-keuangan-${new Date().toISOString().slice(0,10)}.xlsx"`,
+      },
+    });
   }
+
+  if (path === '/' || path === '') return json({ name: 'LIPPO 13 Pulo Ngandang - Sistem Keuangan', status: 'ok' });
 
   return json({ error: 'Not found', path }, { status: 404 });
 }
 
-export async function GET(request, { params }) {
+const wrap = (fn) => async (request, ctx) => {
   try {
-    const resolved = await params;
-    return await handleRoute(request, resolved?.path);
+    const params = await ctx.params;
+    return await handleRoute(request, params?.path);
   } catch (e) {
-    console.error(e);
+    console.error('API error:', e);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
-}
-export async function POST(request, { params }) {
-  try {
-    const resolved = await params;
-    return await handleRoute(request, resolved?.path);
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
-}
-export async function PUT(request, { params }) {
-  try {
-    const resolved = await params;
-    return await handleRoute(request, resolved?.path);
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
-}
-export async function DELETE(request, { params }) {
-  try {
-    const resolved = await params;
-    return await handleRoute(request, resolved?.path);
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
-}
+};
+
+export const GET = wrap();
+export const POST = wrap();
+export const PUT = wrap();
+export const DELETE = wrap();
