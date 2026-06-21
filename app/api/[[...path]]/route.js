@@ -6,6 +6,9 @@ import { v4 as uuidv4 } from 'uuid';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 const ORG_NAME = process.env.ORG_NAME || 'LIPPO 13 Pulo Ngandang';
