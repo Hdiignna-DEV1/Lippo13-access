@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, MapPin, Target, Star, Crown, Shield, Wallet, ArrowLeft, Sparkles } from 'lucide-react';
 import NavBar from '@/components/NavBar';
+import Footer from '@/components/Footer';
 
 const DIVISION_LABELS = {
   pelindung: 'Pelindung', penasihat: 'Penasihat',
@@ -258,12 +259,7 @@ export default function TentangPage() {
         </Link>
       </section>
 
-      <footer className="border-t bg-red-900 text-red-100 py-5">
-        <div className="container mx-auto px-4 text-center text-xs">
-          <p className="font-semibold mb-1">LIPPO 13 — Karang Taruna Kp. Pulo Ngandang</p>
-          <p className="text-red-200/80 text-[10px]">Dirgahayu Republik Indonesia ke-81</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

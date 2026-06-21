@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LogOut, Plus, Pencil, Trash2, Download, Upload, FileText, Save, ArrowLeft, Wallet, TrendingDown, Settings as SettingsIcon, Search, Receipt, UserPlus, Users as UsersIcon, FileSpreadsheet, Crown } from 'lucide-react';
+import { LogOut, Plus, Pencil, Trash2, Download, Upload, FileText, Save, ArrowLeft, Wallet, TrendingDown, Settings as SettingsIcon, Search, Receipt, UserPlus, Users as UsersIcon, FileSpreadsheet, Crown, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -121,6 +121,7 @@ function CommitteeForm({ initial, onSubmit, onCancel }) {
 
 function UserForm({ initial, onSubmit, onCancel, isEdit }) {
   const [form, setForm] = useState(initial || { username: '', password: '', fullName: '', role: 'pengurus' });
+  const [showPw, setShowPw] = useState(false);
   const upd = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit(form); }} className="space-y-3">
@@ -133,7 +134,15 @@ function UserForm({ initial, onSubmit, onCancel, isEdit }) {
           <SelectContent>{ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
         </Select>
       </div>
-      <div className="space-y-1.5"><Label>{isEdit ? 'Password Baru (kosongkan jika tidak diubah)' : 'Password'}</Label><Input type="password" value={form.password} onChange={(e) => upd('password', e.target.value)} placeholder="********" required={!isEdit} /></div>
+      <div className="space-y-1.5">
+        <Label>{isEdit ? 'Password Baru (kosongkan jika tidak diubah)' : 'Password'}</Label>
+        <div className="relative">
+          <Input type={showPw ? 'text' : 'password'} value={form.password} onChange={(e) => upd('password', e.target.value)} placeholder="********" required={!isEdit} className="pr-10" />
+          <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
+            {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
       <DialogFooter className="gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>Batal</Button>
         <Button type="submit" className="bg-red-600 hover:bg-red-700"><Save className="w-4 h-4 mr-1.5" /> Simpan</Button>
@@ -363,6 +372,7 @@ export default function AdminPage() {
   const allTotalOut = transactions.filter(t => t.type === 'out').reduce((s, t) => s + Number(t.amount), 0);
 
   const isAdmin = user?.role === 'admin';
+  const canManageCommittee = user?.role === 'admin' || user?.role === 'pengurus';
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -408,9 +418,9 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="tx" className="w-full">
-          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-5' : 'grid-cols-4'} max-w-2xl`}>
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-5' : canManageCommittee ? 'grid-cols-4' : 'grid-cols-3'} max-w-2xl`}>
             <TabsTrigger value="tx">Transaksi</TabsTrigger>
-            <TabsTrigger value="committee">Kepanitiaan</TabsTrigger>
+            {canManageCommittee && <TabsTrigger value="committee">Kepanitiaan</TabsTrigger>}
             <TabsTrigger value="settings">Pengaturan</TabsTrigger>
             <TabsTrigger value="export">Export</TabsTrigger>
             {isAdmin && <TabsTrigger value="users">Pengguna</TabsTrigger>}
@@ -538,6 +548,7 @@ export default function AdminPage() {
           </TabsContent>
 
           {/* KEPANITIAAN */}
+          {canManageCommittee && (
           <TabsContent value="committee">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -609,6 +620,7 @@ export default function AdminPage() {
               </DialogContent>
             </Dialog>
           </TabsContent>
+          )}
 
           {/* SETTINGS */}
           <TabsContent value="settings">

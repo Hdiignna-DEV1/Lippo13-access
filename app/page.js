@@ -10,6 +10,7 @@ import { Download, TrendingUp, Users, Sparkles, Building2, FileText, Heart, PieC
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import Link from 'next/link';
 import NavBar from '@/components/NavBar';
+import Footer from '@/components/Footer';
 
 const rupiah = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n || 0);
 const fmtDate = (d) => { try { return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return d; } };
@@ -299,12 +300,7 @@ export default function HomePage() {
         </Link>
       </section>
 
-      <footer className="border-t bg-red-900 text-red-100 py-5">
-        <div className="container mx-auto px-4 text-center text-xs">
-          <p className="font-semibold mb-1">LIPPO 13 — Karang Taruna Kp. Pulo Ngandang</p>
-          <p className="text-red-200/80 text-[10px]">Sistem Transparansi Keuangan • Dirgahayu Republik Indonesia</p>
-        </div>
-      </footer>
+      <footer><Footer /></footer>
     </div>
   );
 }

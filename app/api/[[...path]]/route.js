@@ -309,14 +309,16 @@ async function handleRoute(request, pathSegments) {
     return json({ ok: true });
   }
 
-  // ============= COMMITTEE (admin) =============
+  // ============= COMMITTEE (admin & pengurus only) =============
   if (path === '/admin/committee' && method === 'GET') {
+    if (!['admin', 'pengurus'].includes(session.role)) return json({ error: 'Hanya admin & pengurus yang bisa mengakses' }, { status: 403 });
     await ensureCommittee();
     const members = await db.collection('committee').find({}, { projection: { _id: 0 } }).sort({ order: 1 }).limit(200).toArray();
     return json({ members });
   }
 
   if (path === '/admin/committee' && method === 'POST') {
+    if (!['admin', 'pengurus'].includes(session.role)) return json({ error: 'Hanya admin & pengurus yang bisa menambah' }, { status: 403 });
     const body = await request.json();
     const { fullName, division, role, order } = body || {};
     if (!fullName || !division) return json({ error: 'fullName & division wajib' }, { status: 400 });
@@ -334,6 +336,7 @@ async function handleRoute(request, pathSegments) {
   }
 
   if (path.startsWith('/admin/committee/') && method === 'PUT') {
+    if (!['admin', 'pengurus'].includes(session.role)) return json({ error: 'Forbidden' }, { status: 403 });
     const id = path.split('/').pop();
     const body = await request.json();
     const update = {};
@@ -346,6 +349,7 @@ async function handleRoute(request, pathSegments) {
   }
 
   if (path.startsWith('/admin/committee/') && method === 'DELETE') {
+    if (!['admin', 'pengurus'].includes(session.role)) return json({ error: 'Forbidden' }, { status: 403 });
     const id = path.split('/').pop();
     const r = await db.collection('committee').deleteOne({ id });
     if (r.deletedCount === 0) return json({ error: 'Anggota tidak ditemukan' }, { status: 404 });
